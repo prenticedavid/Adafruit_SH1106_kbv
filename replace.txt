@@ -1,0 +1,38 @@
+void Adafruit_SH1106_kbv::display(void) {
+    TRANSACTION_START
+#if defined(ESP8266)
+    yield();
+#endif
+    uint8_t *ptr = buffer;
+    for (uint8_t page = 0; page < (HEIGHT + 7) / 8; page++) {
+        sh1106_command1(0xB0 + page);           // Set PAGEADS
+        sh1106_command1(SH1106_SETLOWCOLUMN + 2);
+        sh1106_command1(SH1106_SETHIGHCOLUMN);
+        uint16_t count = WIDTH;
+
+        if (wire) { // I2C
+            wire->beginTransmission(i2caddr);
+            WIRE_WRITE((uint8_t)0x40);
+            uint16_t bytesOut = 1;
+            while (count--) {
+                if (bytesOut >= WIRE_MAX) {
+                    wire->endTransmission();
+                    wire->beginTransmission(i2caddr);
+                    WIRE_WRITE((uint8_t)0x40);
+                    bytesOut = 1;
+                }
+                WIRE_WRITE(*ptr++);
+                bytesOut++;
+            }
+            wire->endTransmission();
+        } else { // SPI
+            SH1106_MODE_DATA
+            while (count--)
+                SPIwrite(*ptr++);
+        }
+    } //page
+    TRANSACTION_END
+#if defined(ESP8266)
+    yield();
+#endif
+}
